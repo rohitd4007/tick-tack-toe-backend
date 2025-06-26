@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Multiplayer Tic-Tac-Toe</title>
+    <style>
+        body {
+            font-family: Arial;
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            margin: 20px auto;
+            gap: 5px;
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            font-size: 2rem;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .disabled {
+            pointer-events: none;
+            background: #ddd;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Multiplayer Tic-Tac-Toe</h2>
+
+    <button onclick="createRoom()">Create Room</button>
+    <input type="text" id="roomCodeInput" placeholder="Room Code">
+    <button onclick="joinRoom()">Join Room</button>
+
+    <h3 id="status"></h3>
+    <div id="board"></div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const socket = io("http://localhost:5000"); // change if deployed
+        let currentTurn = '';
+        let roomCode = '';
+        let mySocketId = '';
+        const boardDiv = document.getElementById("board");
+
+        socket.on("connect", () => {
+            mySocketId = socket.id;
+        });
+
+        function createRoom() {
+            socket.emit("createRoom");
+        }
+
+        function joinRoom() {
+            const code = document.getElementById("roomCodeInput").value.trim().toUpperCase();
+            if (code) {
+                socket.emit("joinRoom", { roomCode: code });
+            }
+        }
+
+        socket.on("roomCreated", (data) => {
+            roomCode = data.roomCode;
+            document.getElementById("status").innerText = `Room Created: ${roomCode}. Waiting for opponent...`;
+        });
+
+        socket.on("startGame", ({ roomCode: rc, players, currentTurn: turn, board }) => {
+            roomCode = rc;
+            currentTurn = turn;
+            document.getElementById("status").innerText =
+                `Game Started! You are ${socket.id === players[0] ? 'X' : 'O'}`;
+            renderBoard(board);
+        });
+
+        socket.on("updateBoard", ({ board, currentTurn: turn }) => {
+            currentTurn = turn;
+            renderBoard(board);
+        });
+
+        socket.on("gameOver", ({ board, winner }) => {
+            renderBoard(board, true);
+            document.getElementById("status").innerText =
+                winner === 'Draw' ? "It's a Draw!" : `Winner: ${winner}`;
+        });
+
+        socket.on("errorMessage", (msg) => {
+            alert(msg);
+        });
+
+        socket.on("playerLeft", (msg) => {
+            document.getElementById("status").innerText = msg;
+            renderBoard([], true); // disable board
+        });
+
+
+        function renderBoard(board, disable = false) {
+            boardDiv.innerHTML = "";
+            board.forEach((cell, index) => {
+                const div = document.createElement("div");
+                div.className = "cell";
+                if (disable || cell || currentTurn !== socket.id) {
+                    div.classList.add("disabled");
+                }
+                div.innerText = cell || "";
+                div.onclick = () => {
+                    if (!cell && currentTurn === socket.id) {
+                        socket.emit("makeMove", { roomCode, index });
+                    }
+                };
+                boardDiv.appendChild(div);
+            });
+        }
+    </script>
+</body>
+
+</html>
