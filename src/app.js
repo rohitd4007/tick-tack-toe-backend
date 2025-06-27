@@ -4,7 +4,7 @@ const cors = require('cors');
 
 // Middleware
 app.use(cors({
-    origin: 'http://localhost:3001',
+    origin: 'http://localhost:3001,https://tiik-tak-to.netlify.app/,http://localhost:3000',
     methods: ['GET', 'POST'],
     credentials: true
 }));
